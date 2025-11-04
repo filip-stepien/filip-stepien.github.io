@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>simpleks min</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f2ee;
+      --panel: #ffffff;
+      --ink: #1f2428;
+      --muted: #646b73;
+      --line: #c8c3ba;
+      --line-strong: #353a40;
+      --accent: #0f6f68;
+      --accent-soft: #d9ebe7;
+      --danger: #9b2f2f;
+      --warn: #8a6300;
+      --ok: #1f6b3a;
+      --code: #f7f7f4;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 28px auto 48px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 1px 0 rgb(0 0 0 / 0.04);
+    }
+
+    .input-panel {
+      position: sticky;
+      top: 16px;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    textarea,
+    input[type="text"] {
+      display: block;
+      width: 100%;
+      margin-top: 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--code);
+      color: var(--ink);
+      font: 15px/1.45 Consolas, "Cascadia Mono", monospace;
+      letter-spacing: 0;
+      resize: vertical;
+    }
+
+    input[type="text"] {
+      min-height: 42px;
+      padding: 10px 12px;
+    }
+
+    textarea {
+      min-height: 170px;
+      padding: 11px 12px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button {
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: var(--accent);
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .messages {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .message {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .message.error {
+      border-left-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .message.warn {
+      border-left-color: var(--warn);
+    }
+
+    .message.ok {
+      border-left-color: var(--ok);
+    }
+
+    .steps {
+      display: grid;
+      gap: 18px;
+    }
+
+    .step {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .step-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px;
+      background: #fbfaf7;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .phase {
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .objective {
+      color: var(--muted);
+      font-size: 14px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    .pivot-note {
+      color: var(--muted);
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 14px 16px 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line-strong);
+      padding: 7px 8px;
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #efede8;
+      font-weight: 800;
+    }
+
+    td.basis {
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    tr.pivot-row td {
+      background: #fff8d9;
+    }
+
+    td.pivot-col,
+    th.pivot-col {
+      background: var(--accent-soft);
+    }
+
+    tr.pivot-row td.pivot-col {
+      background: #d8d48b;
+      font-weight: 900;
+    }
+
+    tr.summary td {
+      background: #fbfaf7;
+      font-weight: 800;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .formula-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    code {
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .input-panel {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>simpleks min</h1>
+    <div class="layout">
+      <section class="panel input-panel">
+        <h2>dane</h2>
+        <label>
+          funkcja celu
+          <input id="objective" type="text" value="2x1 - 3x2 + 6x3">
+        </label>
+        <label>
+          ograniczenia
+          <textarea id="constraints">3x1 - 4x2 - 6x3 <= 2
+2x1 + x2 + 2x3 >= 11
+x1 + 3x2 - 2x3 <= 5</textarea>
+        </label>
+        <div class="row">
+          <button id="solveButton" type="button">policz</button>
+          <button id="exampleButton" class="secondary" type="button">przykład</button>
+          <label class="check">
+            <input id="fractionToggle" type="checkbox" checked>
+            ułamki
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <div id="messages" class="messages"></div>
+        <div id="output" class="steps"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const EPS = 1e-9;
+    const MAX_ITERATIONS = 80;
+
+    const objectiveInput = document.getElementById("objective");
+    const constraintsInput = document.getElementById("constraints");
+    const output = document.getElementById("output");
+    const messages = document.getElementById("messages");
+    const fractionToggle = document.getElementById("fractionToggle");
+
+    document.getElementById("solveButton").addEventListener("click", solveFromForm);
+    document.getElementById("exampleButton").addEventListener("click", () => {
+      objectiveInput.value = "2x1 - 3x2 + 6x3";
+      constraintsInput.value = [
+        "3x1 - 4x2 - 6x3 <= 2",
+        "2x1 + x2 + 2x3 >= 11",
+        "x1 + 3x2 - 2x3 <= 5"
+      ].join("\n");
+      solveFromForm();
+    });
+
+    solveFromForm();
+
+    function solveFromForm() {
+      clearOutput();
+      try {
+        const problem = parseProblem(objectiveInput.value, constraintsInput.value);
+        const solution = solveProblem(problem);
+        renderSolution(problem, solution);
+      } catch (error) {
+        addMessage(error.message, "error");
+      }
+    }
+
+    function clearOutput() {
+      messages.innerHTML = "";
+      output.innerHTML = "";
+    }
+
+    function parseProblem(objectiveText, constraintsText) {
+      const objective = parseObjective(objectiveText);
+      const constraintLines = constraintsText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      if (!objective.maxIndex && objective.coeffs.length === 0) {
+        throw new Error("Brakuje funkcji celu.");
+      }
+      if (constraintLines.length === 0) {
+        throw new Error("Brakuje ograniczeń.");
+      }
+
+      const constraints = [];
+      let n = objective.maxIndex || objective.coeffs.length;
+
+      for (const line of constraintLines) {
+        const parsed = parseConstraint(line, n);
+        n = Math.max(n, parsed.maxIndex || 0, parsed.coeffs.length);
+        constraints.push(parsed);
+      }
+
+      const objectiveCoeffs = normalizeCoeffs(objective.coeffs, n);
+      const usefulConstraints = [];
+      const skipped = [];
+
+      for (const item of constraints) {
+        const normalized = {
+          coeffs: normalizeCoeffs(item.coeffs, n),
+          op: item.op,
+          rhs: item.rhs,
+          source: item.source
+        };
+        if (isNonnegativityConstraint(normalized)) {
+          skipped.push(normalized.source);
+        } else {
+          usefulConstraints.push(normalized);
+        }
+      }
+
+      if (usefulConstraints.length === 0) {
+        throw new Error("Zostały tylko warunki nieujemności, brakuje właściwych ograniczeń.");
+      }
+
+      return {
+        n,
+        objective: objectiveCoeffs,
+        constraints: usefulConstraints,
+        skippedNonnegativity: skipped
+      };
+    }
+
+    function parseObjective(text) {
+      let body = normalizeText(text);
+      if (body.includes("=")) {
+        body = body.split("=").pop();
+      }
+      if (/x_?\{?\d+\}?/i.test(body)) {
+        const parsed = parseLinearExpression(body);
+        return parsed;
+      }
+      const coeffs = parseCoeffList(body);
+      return { coeffs, maxIndex: coeffs.length };
+    }
+
+    function parseConstraint(line, expectedLength) {
+      const source = line;
+      const normalized = normalizeText(line)
+        .replace(/≤/g, "<=")
+        .replace(/≥/g, ">=");
+      const match = normalized.match(/(<=|>=|=)/);
+      if (!match) {
+        throw new Error(`Nie widzę znaku ograniczenia w linii: ${line}`);
+      }
+
+      const op = match[1];
+      const left = normalized.slice(0, match.index).trim();
+      const right = normalized.slice(match.index + op.length).trim();
+      if (!left || !right) {
+        throw new Error(`Niepełne ograniczenie: ${line}`);
+      }
+
+      const parsedLeft = /x_?\{?\d+\}?/i.test(left)
+        ? parseLinearExpression(left)
+        : { coeffs: parseCoeffList(left, expectedLength), maxIndex: expectedLength };
+
+      const rhs = parseNumber(right);
+      return {
+        coeffs: parsedLeft.coeffs,
+        maxIndex: parsedLeft.maxIndex,
+        op,
+        rhs,
+        source
+      };
+    }
+
+    function normalizeText(text) {
+      return String(text)
+        .replace(/−/g, "-")
+        .replace(/–/g, "-")
+        .replace(/,/g, ".")
+        .trim();
+    }
+
+    function parseLinearExpression(expr) {
+      const compact = normalizeText(expr).replace(/\s+/g, "");
+      const coeffs = [];
+      const termPattern = /([+-]?)(?:(\d+(?:\.\d+)?(?:\/\d+(?:\.\d+)?)?)\*?)?x_?\{?(\d+)\}?/gi;
+      let matched = false;
+      let match;
+
+      while ((match = termPattern.exec(compact)) !== null) {
+        matched = true;
+        const sign = match[1] === "-" ? -1 : 1;
+        const rawCoeff = match[2];
+        const index = Number(match[3]);
+        if (!Number.isInteger(index) || index < 1) {
+          throw new Error(`Niepoprawny indeks zmiennej w wyrażeniu: ${expr}`);
+        }
+        const coeff = sign * (rawCoeff ? parseNumber(rawCoeff) : 1);
+        coeffs[index - 1] = (coeffs[index - 1] || 0) + coeff;
+      }
+
+      if (!matched) {
+        throw new Error(`Nie umiem odczytać wyrażenia liniowego: ${expr}`);
+      }
+
+      for (let i = 0; i < coeffs.length; i += 1) {
+        coeffs[i] = coeffs[i] || 0;
+      }
+
+      return { coeffs, maxIndex: coeffs.length };
+    }
+
+    function parseCoeffList(text, expectedLength = 0) {
+      const parts = normalizeText(text)
+        .split(/[;\s]+/)
+        .map(item => item.trim())
+        .filter(Boolean);
+      if (parts.length === 0) {
+        throw new Error("Pusta lista współczynników.");
+      }
+      const coeffs = parts.map(parseNumber);
+      if (expectedLength && coeffs.length !== expectedLength) {
+        throw new Error(`Lista współczynników ma ${coeffs.length} elementów, a funkcja celu ma ${expectedLength}.`);
+      }
+      return coeffs;
+    }
+
+    function parseNumber(raw) {
+      const text = String(raw).trim().replace(/,/g, ".");
+      if (/^[+-]?\d+(?:\.\d+)?\/[+-]?\d+(?:\.\d+)?$/.test(text)) {
+        const [top, bottom] = text.split("/").map(Number);
+        if (Math.abs(bottom) < EPS) {
+          throw new Error(`Dzielenie przez zero w liczbie: ${raw}`);
+        }
+        return top / bottom;
+      }
+      const value = Number(text);
+      if (!Number.isFinite(value)) {
+        throw new Error(`Niepoprawna liczba: ${raw}`);
+      }
+      return value;
+    }
+
+    function normalizeCoeffs(coeffs, length) {
+      const result = Array(length).fill(0);
+      for (let i = 0; i < coeffs.length; i += 1) {
+        result[i] = coeffs[i] || 0;
+      }
+      return result;
+    }
+
+    function isNonnegativityConstraint(constraint) {
+      if (constraint.op !== ">=" || Math.abs(constraint.rhs) > EPS) {
+        return false;
+      }
+      let nonzero = 0;
+      let isUnit = false;
+      for (const coeff of constraint.coeffs) {
+        if (Math.abs(coeff) > EPS) {
+          nonzero += 1;
+          isUnit = Math.abs(coeff - 1) < EPS;
+        }
+      }
+      return nonzero === 1 && isUnit;
+    }
+
+    function solveProblem(problem) {
+      const state = standardize(problem);
+      const steps = [];
+      const notes = [...state.notes];
+
+      if (problem.skippedNonnegativity.length) {
+        notes.push(`Pominięto warunki nieujemności jako założenie: ${problem.skippedNonnegativity.join("; ")}.`);
+      }
+
+      if (state.artificialNames.length) {
+        const phaseCosts = state.vars.map(v => v.type === "artificial" ? 1 : 0);
+        const label = `min W = ${state.artificialNames.join(" + ")}`;
+        runSimplex(state, phaseCosts, "faza I", label, steps);
+
+        const phaseMetrics = computeMetrics(state, phaseCosts);
+        if (phaseMetrics.value > 1e-7) {
+          steps.push(makeSnapshot(state, phaseCosts, "faza I", label, "Brak rozwiązania dopuszczalnego.", null));
+          return { steps, notes, status: "infeasible" };
+        }
+
+        removeArtificialVariables(state, steps);
+      } else {
+        notes.push("Baza startowa wyszła bez zmiennych sztucznych.");
+      }
+
+      const originalCosts = state.vars.map(v => v.originalCost || 0);
+      const originalLabel = `min F = ${problem.objective.map((c, i) => termText(c, `x${i + 1}`)).filter(Boolean).join(" + ").replace(/\+ -/g, "- ")}`;
+      runSimplex(state, originalCosts, "faza II", originalLabel, steps);
+
+      return { steps, notes, status: "ok" };
+    }
+
+    function standardize(problem) {
+      const vars = [];
+      const A = [];
+      const b = [];
+      const basis = [];
+      const notes = [];
+      const artificialNames = [];
+
+      for (let i = 0; i < problem.n; i += 1) {
+        vars.push({
+          name: `x${i + 1}`,
+          type: "decision",
+          originalCost: problem.objective[i]
+        });
+      }
+
+      const addVar = (type, currentRow) => {
+        const variable = {
+          name: `x${vars.length + 1}`,
+          type,
+          originalCost: 0
+        };
+        vars.push(variable);
+        for (const row of A) {
+          row.push(0);
+        }
+        currentRow.push(0);
+        return vars.length - 1;
+      };
+
+      for (let rowIndex = 0; rowIndex < problem.constraints.length; rowIndex += 1) {
+        const constraint = problem.constraints[rowIndex];
+        let coeffs = [...constraint.coeffs];
+        let rhs = constraint.rhs;
+        let op = constraint.op;
+
+        if (rhs < -EPS) {
+          coeffs = coeffs.map(value => -value);
+          rhs = -rhs;
+          op = flipOperator(op);
+          notes.push(`Ograniczenie ${rowIndex + 1} przemnożono przez -1, bo prawa strona była ujemna.`);
+        }
+
+        const row = Array(vars.length).fill(0);
+        for (let j = 0; j < coeffs.length; j += 1) {
+          row[j] = coeffs[j];
+        }
+
+        if (op === "<=") {
+          const slack = addVar("slack", row);
+          row[slack] = 1;
+          basis.push(slack);
+        } else if (op === ">=") {
+          const surplus = addVar("surplus", row);
+          row[surplus] = -1;
+          const artificial = addVar("artificial", row);
+          row[artificial] = 1;
+          basis.push(artificial);
+          artificialNames.push(vars[artificial].name);
+          notes.push(`Do ograniczenia ${rowIndex + 1} dodano zmienną nadmiaru ${vars[surplus].name} i sztuczną ${vars[artificial].name}.`);
+        } else if (op === "=") {
+          const artificial = addVar("artificial", row);
+          row[artificial] = 1;
+          basis.push(artificial);
+          artificialNames.push(vars[artificial].name);
+          notes.push(`Do ograniczenia ${rowIndex + 1} dodano zmienną sztuczną ${vars[artificial].name}.`);
+        }
+
+        A.push(row);
+        b.push(rhs);
+      }
+
+      return { vars, A, b, basis, notes, artificialNames };
+    }
+
+    function flipOperator(op) {
+      if (op === "<=") return ">=";
+      if (op === ">=") return "<=";
+      return "=";
+    }
+
+    function runSimplex(state, costs, phase, label, steps) {
+      for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
+        const metrics = computeMetrics(state, costs);
+        const entering = chooseEntering(metrics.cMinusZ);
+
+        if (entering === -1) {
+          steps.push(makeSnapshot(state, costs, phase, label, "Warunek optymalności spełniony.", null));
+          return;
+        }
+
+        const leaving = chooseLeaving(state, entering);
+        if (leaving.row === -1) {
+          steps.push(makeSnapshot(state, costs, phase, label, "Brak ograniczenia wyjścia: zadanie nieograniczone.", { entering, leaving: -1 }));
+          return;
+        }
+
+        steps.push(makeSnapshot(state, costs, phase, label, "Wybór elementu głównego.", {
+          entering,
+          leaving: leaving.row,
+          ratios: leaving.ratios
+        }));
+        pivot(state, leaving.row, entering);
+      }
+
+      throw new Error("Przerwano po zbyt wielu iteracjach.");
+    }
+
+    function computeMetrics(state, costs) {
+      const colCount = state.vars.length;
+      const zj = Array(colCount).fill(0);
+      let value = 0;
+
+      for (let i = 0; i < state.A.length; i += 1) {
+        const cBasis = costs[state.basis[i]] || 0;
+        value += cBasis * state.b[i];
+        for (let j = 0; j < colCount; j += 1) {
+          zj[j] += cBasis * state.A[i][j];
+        }
+      }
+
+      const cMinusZ = zj.map((valueAtCol, j) => (costs[j] || 0) - valueAtCol);
+      return { value, zj, cMinusZ };
+    }
+
+    function chooseEntering(cMinusZ) {
+      let best = -1;
+      let bestValue = -EPS;
+      for (let j = 0; j < cMinusZ.length; j += 1) {
+        if (cMinusZ[j] < bestValue) {
+          bestValue = cMinusZ[j];
+          best = j;
+        }
+      }
+      return best;
+    }
+
+    function chooseLeaving(state, entering) {
+      let bestRow = -1;
+      let bestRatio = Infinity;
+      const ratios = Array(state.A.length).fill(null);
+
+      for (let i = 0; i < state.A.length; i += 1) {
+        const coefficient = state.A[i][entering];
+        if (coefficient > EPS) {
+          const ratio = state.b[i] / coefficient;
+          ratios[i] = ratio;
+          if (ratio < bestRatio - EPS) {
+            bestRatio = ratio;
+            bestRow = i;
+          }
+        }
+      }
+
+      return { row: bestRow, ratio: bestRatio, ratios };
+    }
+
+    function pivot(state, rowIndex, colIndex) {
+      const pivotValue = state.A[rowIndex][colIndex];
+      if (Math.abs(pivotValue) < EPS) {
+        throw new Error("Element główny jest zerowy.");
+      }
+
+      for (let j = 0; j < state.vars.length; j += 1) {
+        state.A[rowIndex][j] /= pivotValue;
+      }
+      state.b[rowIndex] /= pivotValue;
+
+      for (let i = 0; i < state.A.length; i += 1) {
+        if (i === rowIndex) continue;
+        const factor = state.A[i][colIndex];
+        if (Math.abs(factor) < EPS) continue;
+        for (let j = 0; j < state.vars.length; j += 1) {
+          state.A[i][j] -= factor * state.A[rowIndex][j];
+        }
+        state.b[i] -= factor * state.b[rowIndex];
+      }
+
+      state.basis[rowIndex] = colIndex;
+    }
+
+    function removeArtificialVariables(state, steps) {
+      for (let i = 0; i < state.basis.length; i += 1) {
+        const basisVar = state.vars[state.basis[i]];
+        if (!basisVar || basisVar.type !== "artificial") continue;
+
+        let replacement = -1;
+        for (let j = 0; j < state.vars.length; j += 1) {
+          if (state.vars[j].type !== "artificial" && Math.abs(state.A[i][j]) > EPS) {
+            replacement = j;
+            break;
+          }
+        }
+
+        if (replacement !== -1) {
+          pivot(state, i, replacement);
+        } else {
+          state.A.splice(i, 1);
+          state.b.splice(i, 1);
+          state.basis.splice(i, 1);
+          i -= 1;
+        }
+      }
+
+      for (let j = state.vars.length - 1; j >= 0; j -= 1) {
+        if (state.vars[j].type !== "artificial") continue;
+        state.vars.splice(j, 1);
+        for (const row of state.A) {
+          row.splice(j, 1);
+        }
+        for (let i = 0; i < state.basis.length; i += 1) {
+          if (state.basis[i] > j) {
+            state.basis[i] -= 1;
+          }
+        }
+      }
+
+      steps.push({
+        phase: "przejście",
+        label: "usunięcie zmiennych sztucznych",
+        note: "Zmienne sztuczne usunięto z tablicy po fazie I.",
+        transitionOnly: true
+      });
+    }
+
+    function makeSnapshot(state, costs, phase, label, note, pivotInfo) {
+      const metrics = computeMetrics(state, costs);
+      return {
+        phase,
+        label,
+        note,
+        vars: state.vars.map(v => ({ ...v })),
+        basis: [...state.basis],
+        costs: [...costs],
+        A: state.A.map(row => [...row]),
+        b: [...state.b],
+        metrics,
+        pivot: pivotInfo
+      };
+    }
+
+    function renderSolution(problem, solution) {
+      addMessage(`Zmienne decyzyjne: ${Array.from({ length: problem.n }, (_, i) => `x${i + 1}`).join(", ")}.`, "ok");
+      for (const note of solution.notes) {
+        addMessage(note, "warn");
+      }
+      if (solution.status === "infeasible") {
+        addMessage("Faza I zakończyła się wartością większą od zera, więc zadanie nie ma rozwiązania dopuszczalnego.", "error");
+      }
+
+      for (const [index, step] of solution.steps.entries()) {
+        if (step.transitionOnly) {
+          output.appendChild(renderTransition(step));
+        } else {
+          output.appendChild(renderTable(step, index + 1));
+        }
+      }
+    }
+
+    function renderTransition(step) {
+      const card = document.createElement("article");
+      card.className = "step";
+      card.innerHTML = `
+        <div class="step-head">
+          <div class="step-title">
+            <span class="phase">${escapeHtml(step.phase)}</span>
+            <h3>${escapeHtml(step.label)}</h3>
+          </div>
+          <div class="pivot-note">${escapeHtml(step.note)}</div>
+        </div>
+      `;
+      return card;
+    }
+
+    function renderTable(step, ordinal) {
+      const showFractions = fractionToggle.checked;
+      const card = document.createElement("article");
+      card.className = "step";
+      const entering = step.pivot && step.pivot.entering >= 0 ? step.pivot.entering : -1;
+      const leaving = step.pivot && step.pivot.leaving >= 0 ? step.pivot.leaving : -1;
+      const pivotText = step.pivot && entering >= 0
+        ? `wchodzi ${step.vars[entering].name}${leaving >= 0 ? `, wychodzi ${step.vars[step.basis[leaving]].name}` : ""}`
+        : step.note;
+
+      const headerCells = step.vars.map((variable, index) => {
+        const classes = index === entering ? "pivot-col" : "";
+        return `<th class="${classes}">h${index + 1}<br><span class="small">${escapeHtml(variable.name)}</span></th>`;
+      }).join("");
+
+      const cjCells = step.vars.map((_, index) => `<td>${formatNumber(step.costs[index] || 0, showFractions)}</td>`).join("");
+
+      const rows = step.A.map((row, rowIndex) => {
+        const basisIndex = step.basis[rowIndex];
+        const rowClass = rowIndex === leaving ? "pivot-row" : "";
+        const coefficientCells = row.map((value, colIndex) => {
+          const classes = colIndex === entering ? "pivot-col" : "";
+          return `<td class="${classes}">${formatNumber(value, showFractions)}</td>`;
+        }).join("");
+        const ratio = step.pivot && step.pivot.ratios
+          ? step.pivot.ratios[rowIndex]
+          : null;
+        return `
+          <tr class="${rowClass}">
+            <td class="basis">${escapeHtml(step.vars[basisIndex].name)}</td>
+            <td>${formatNumber(step.costs[basisIndex] || 0, showFractions)}</td>
+            <td>${formatNumber(step.b[rowIndex], showFractions)}</td>
+            ${coefficientCells}
+            <td>${ratio === null || ratio === undefined ? "" : formatNumber(ratio, showFractions)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      const deltaCells = step.metrics.cMinusZ.map((value, index) => {
+        const classes = index === entering ? "pivot-col" : "";
+        return `<td class="${classes}">${formatNumber(value, showFractions)}</td>`;
+      }).join("");
+
+      card.innerHTML = `
+        <div class="step-head">
+          <div class="step-title">
+            <span class="phase">${escapeHtml(step.phase)} · tabela ${ordinal}</span>
+            <h3>${escapeHtml(step.note)}</h3>
+            <span class="objective">${escapeHtml(step.label)}</span>
+          </div>
+          <div class="pivot-note">${escapeHtml(pivotText)}<br><span class="small">dla min: wiersz Cj-Zj ma być >= 0</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cj</th>
+                <th></th>
+                <th></th>
+                ${cjCells}
+                <th></th>
+              </tr>
+              <tr>
+                <th>Zb</th>
+                <th>Cb</th>
+                <th>h0</th>
+                ${headerCells}
+                <th>θ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+              <tr class="summary">
+                <td>F / Cj-Zj</td>
+                <td></td>
+                <td>${formatNumber(step.metrics.value, showFractions)}</td>
+                ${deltaCells}
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      return card;
+    }
+
+    function addMessage(text, type = "") {
+      const div = document.createElement("div");
+      div.className = `message ${type}`.trim();
+      div.textContent = text;
+      messages.appendChild(div);
+    }
+
+    function formatNumber(value, asFraction) {
+      if (Math.abs(value) < EPS) {
+        return "0";
+      }
+      if (asFraction) {
+        const fraction = toFraction(value);
+        if (fraction) {
+          return fraction;
+        }
+      }
+      const fixed = Number(value.toFixed(6));
+      return String(fixed).replace(".", ",");
+    }
+
+    function toFraction(value) {
+      const sign = value < 0 ? "-" : "";
+      let x = Math.abs(value);
+      if (Math.abs(x - Math.round(x)) < 1e-8) {
+        return sign + String(Math.round(x));
+      }
+
+      let h1 = 1;
+      let h2 = 0;
+      let k1 = 0;
+      let k2 = 1;
+      let b = x;
+      const maxDenominator = 1000;
+
+      for (let i = 0; i < 24; i += 1) {
+        const a = Math.floor(b);
+        const h = a * h1 + h2;
+        const k = a * k1 + k2;
+        if (k > maxDenominator) {
+          break;
+        }
+        const approximation = h / k;
+        if (Math.abs(approximation - x) < 1e-8) {
+          return `${sign}${h}/${k}`;
+        }
+        h2 = h1;
+        h1 = h;
+        k2 = k1;
+        k1 = k;
+        b = 1 / (b - a);
+        if (!Number.isFinite(b)) {
+          break;
+        }
+      }
+
+      return null;
+    }
+
+    function termText(coeff, name) {
+      if (Math.abs(coeff) < EPS) {
+        return "";
+      }
+      if (Math.abs(coeff - 1) < EPS) {
+        return name;
+      }
+      if (Math.abs(coeff + 1) < EPS) {
+        return `-${name}`;
+      }
+      return `${String(coeff).replace(".", ",")}${name}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
