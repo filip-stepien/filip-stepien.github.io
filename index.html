@@ -1,1041 +1,480 @@
 <!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>simpleks min</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f4f2ee;
-      --panel: #ffffff;
-      --ink: #1f2428;
-      --muted: #646b73;
-      --line: #c8c3ba;
-      --line-strong: #353a40;
-      --accent: #0f6f68;
-      --accent-soft: #d9ebe7;
-      --danger: #9b2f2f;
-      --warn: #8a6300;
-      --ok: #1f6b3a;
-      --code: #f7f7f4;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edytor drzewka doboru produktów</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --bd:#e3e6ec; --line:#d6dae2;
+    --tx:#1c2333; --tx2:#69718a; --hover:#f0f2f6;
+    --q:#4f46e5; --a:#0891b2; --p:#059669; --warn:#d97706; --del:#dc2626;
+    --shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;
+    color:var(--tx); background:var(--bg);
+    display:flex; flex-direction:column;
+  }
 
-    * {
-      box-sizing: border-box;
-    }
+  .spacer{flex:1}
+  button{font:inherit; cursor:pointer}
 
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--ink);
-      font-family: Inter, "Segoe UI", Arial, sans-serif;
-      font-size: 16px;
-      line-height: 1.45;
-    }
+  /* ---------- dwa duże przyciski ---------- */
+  .actions{display:flex; gap:12px; max-width:1000px; margin:0 auto 16px}
+  .big{
+    flex:1; border:1px solid var(--bd); background:#fff; color:var(--tx);
+    border-radius:12px; padding:14px 24px; font-size:16px; font-weight:600;
+    box-shadow:var(--shadow); transition:.12s;
+  }
+  .big.sim{background:var(--q); border-color:var(--q); color:#fff}
+  .big.sim:hover{background:#4338ca; transform:translateY(-1px); box-shadow:0 4px 12px rgba(79,70,229,.28)}
+  .big.reset:hover{background:#fef2f2; border-color:#fecaca; color:var(--del)}
+  .btn{
+    border:1px solid var(--bd); background:#fff; color:var(--tx);
+    border-radius:8px; padding:6px 11px; font-size:13px; transition:.12s;
+  }
+  .btn:hover{background:var(--hover); border-color:#c9cfda}
+  .btn.primary{background:var(--q); border-color:var(--q); color:#fff}
+  .btn.primary:hover{background:#4338ca}
+  .btn.danger:hover{background:#fef2f2; border-color:#fecaca; color:var(--del)}
 
-    main {
-      width: min(1180px, calc(100vw - 32px));
-      margin: 28px auto 48px;
-    }
+  /* ---------- layout ---------- */
+  main{flex:1; overflow:auto; padding:18px}
+  .panel{
+    background:#fff; border:1px solid var(--bd); border-radius:12px; box-shadow:var(--shadow);
+    max-width:1000px; margin:0 auto; padding:16px 20px 28px;
+  }
+  .treehead{display:flex; align-items:center; gap:10px; margin-bottom:4px}
+  .treehead input{
+    font:inherit; font-size:16px; font-weight:650; border:0; background:transparent;
+    padding:5px 8px; border-radius:7px; color:var(--tx); flex:1; min-width:0;
+  }
+  .treehead input:focus{background:var(--hover); outline:2px solid var(--q)}
+  .treehead .count{font-size:12px; color:var(--tx2)}
 
-    h1 {
-      margin: 0 0 18px;
-      font-size: clamp(30px, 4vw, 48px);
-      line-height: 1;
-      letter-spacing: 0;
-    }
+  /* ---------- tree ---------- */
+  .children{margin-left:14px; padding-left:22px; border-left:2px solid var(--line)}
+  .children.root{margin-left:0; padding-left:0; border-left:0}
+  .node{position:relative; margin:7px 0}
+  .children:not(.root) > .node::before{
+    content:''; position:absolute; left:-22px; top:20px; width:20px; height:2px; background:var(--line);
+  }
+  .card{
+    display:flex; align-items:center; gap:6px;
+    background:var(--card); border:1px solid var(--bd); border-left:4px solid var(--ac);
+    border-radius:10px; padding:5px 7px 5px 10px; box-shadow:var(--shadow);
+  }
+  .card:hover{border-color:#c9cfda; border-left-color:var(--ac)}
+  .node.q{--ac:var(--q)} .node.a{--ac:var(--a)} .node.p{--ac:var(--p)}
 
-    h2 {
-      margin: 0 0 14px;
-      font-size: 22px;
-      letter-spacing: 0;
-    }
+  /* odpowiedź, która donikąd nie prowadzi */
+  .card.dead, .card.dead:hover{border-color:var(--del); border-left-color:var(--del); background:#fffafa}
 
-    h3 {
-      margin: 0 0 10px;
-      font-size: 18px;
-      letter-spacing: 0;
-    }
+  .tag{
+    font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--ac); background:color-mix(in srgb, var(--ac) 10%, #fff);
+    border:1px solid color-mix(in srgb, var(--ac) 25%, #fff);
+    padding:2px 7px; border-radius:5px; white-space:nowrap; flex:none;
+  }
+  input.t{
+    flex:1; min-width:60px; border:1px solid transparent; background:transparent; font:inherit;
+    padding:5px 8px; border-radius:7px; color:var(--tx);
+  }
+  input.t::placeholder{color:#a8aec0}
+  input.t:hover{background:var(--hover)}
+  input.t:focus{background:#fff; outline:none; border-color:var(--ac); box-shadow:0 0 0 3px color-mix(in srgb, var(--ac) 15%, #fff)}
+  input.note{flex:0 1 190px; font-size:12.5px; color:var(--tx2)}
 
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
-      gap: 18px;
-      align-items: start;
-    }
+  .ico{
+    border:0; background:transparent; color:#9aa1b4; width:26px; height:26px; border-radius:6px;
+    font-size:14px; line-height:1; display:grid; place-items:center; flex:none;
+  }
+  .ico:hover{background:var(--hover); color:var(--tx)}
+  .ico.del:hover{background:#fef2f2; color:var(--del)}
+  .ico.chev{color:var(--tx2); font-size:11px}
 
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 18px;
-      box-shadow: 0 1px 0 rgb(0 0 0 / 0.04);
-    }
+  .addbar{display:flex; gap:6px; padding:4px 0 2px}
+  .add{
+    border:1px dashed #c8cede; background:#fff; color:var(--tx2);
+    border-radius:7px; padding:3px 10px; font-size:12.5px;
+  }
+  .add:hover{border-style:solid; color:var(--tx); background:var(--hover)}
+  .add.q:hover{border-color:var(--q); color:var(--q)}
+  .add.a:hover{border-color:var(--a); color:var(--a)}
+  .add.p:hover{border-color:var(--p); color:var(--p)}
 
-    .input-panel {
-      position: sticky;
-      top: 16px;
-    }
+  .badge{font-size:11.5px; color:var(--warn); background:#fffbeb; border:1px solid #fde68a; padding:2px 7px; border-radius:5px; white-space:nowrap}
+  .badge.dead{color:#fff; background:var(--del); border-color:var(--del); font-weight:600}
+  .count{font-size:11.5px; color:var(--tx2); background:var(--hover); padding:2px 7px; border-radius:5px; white-space:nowrap}
 
-    label {
-      display: block;
-      margin: 0 0 14px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
+  /* ---------- dialogi ---------- */
+  dialog{border:0; border-radius:14px; padding:0; box-shadow:0 20px 60px rgba(16,24,40,.28); max-width:min(720px,94vw); width:100%}
+  dialog::backdrop{background:rgba(17,24,39,.45)}
+  .dlg-h{display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--bd)}
+  .dlg-h h2{margin:0; font-size:15px}
+  .dlg-b{padding:18px; max-height:70vh; overflow:auto}
+  .dlg-f{display:flex; gap:8px; justify-content:flex-end; padding:12px 18px; border-top:1px solid var(--bd); background:#fafbfc; border-radius:0 0 14px 14px}
 
-    textarea,
-    input[type="text"] {
-      display: block;
-      width: 100%;
-      margin-top: 7px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--code);
-      color: var(--ink);
-      font: 15px/1.45 Consolas, "Cascadia Mono", monospace;
-      letter-spacing: 0;
-      resize: vertical;
-    }
+  .crumbs{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px}
+  .crumb{font-size:12px; background:var(--hover); border:1px solid var(--bd); padding:3px 9px; border-radius:20px; color:var(--tx2)}
+  .simq{font-size:19px; font-weight:650; margin:0 0 14px}
+  .opts{display:grid; gap:8px}
+  .opt{
+    text-align:left; border:1px solid var(--bd); background:#fff; border-radius:10px;
+    padding:11px 14px; font-size:14px; transition:.12s;
+  }
+  .opt:hover{border-color:var(--q); background:#f5f4ff; transform:translateX(2px)}
+  .res{border:1px solid #a7f3d0; background:#ecfdf5; border-radius:10px; padding:12px 14px; margin:8px 0}
+  .res b{display:block; font-size:15px; color:#047857}
+  .res small{color:var(--tx2)}
+  .empty{color:var(--warn); background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 14px}
 
-    input[type="text"] {
-      min-height: 42px;
-      padding: 10px 12px;
-    }
-
-    textarea {
-      min-height: 170px;
-      padding: 11px 12px;
-    }
-
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    button {
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      background: var(--accent);
-      color: #fff;
-      padding: 10px 14px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      background: #fff;
-      color: var(--accent);
-    }
-
-    .check {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0;
-      color: var(--ink);
-      font-size: 14px;
-      font-weight: 700;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-
-    .messages {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .message {
-      border: 1px solid var(--line);
-      border-left: 4px solid var(--accent);
-      border-radius: 6px;
-      padding: 10px 12px;
-      background: #fff;
-      color: var(--ink);
-    }
-
-    .message.error {
-      border-left-color: var(--danger);
-      color: var(--danger);
-    }
-
-    .message.warn {
-      border-left-color: var(--warn);
-    }
-
-    .message.ok {
-      border-left-color: var(--ok);
-    }
-
-    .steps {
-      display: grid;
-      gap: 18px;
-    }
-
-    .step {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .step-head {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 14px 16px;
-      background: #fbfaf7;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .step-title {
-      display: grid;
-      gap: 2px;
-    }
-
-    .phase {
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .objective {
-      color: var(--muted);
-      font-size: 14px;
-      font-family: Consolas, "Cascadia Mono", monospace;
-    }
-
-    .pivot-note {
-      color: var(--muted);
-      font-size: 14px;
-      text-align: right;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      padding: 14px 16px 16px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 780px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    th,
-    td {
-      border: 1px solid var(--line-strong);
-      padding: 7px 8px;
-      text-align: center;
-      vertical-align: middle;
-      white-space: nowrap;
-    }
-
-    th {
-      background: #efede8;
-      font-weight: 800;
-    }
-
-    td.basis {
-      font-weight: 800;
-      color: var(--accent);
-    }
-
-    tr.pivot-row td {
-      background: #fff8d9;
-    }
-
-    td.pivot-col,
-    th.pivot-col {
-      background: var(--accent-soft);
-    }
-
-    tr.pivot-row td.pivot-col {
-      background: #d8d48b;
-      font-weight: 900;
-    }
-
-    tr.summary td {
-      background: #fbfaf7;
-      font-weight: 800;
-    }
-
-    .small {
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .formula-list {
-      display: grid;
-      gap: 8px;
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    code {
-      background: var(--code);
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 1px 4px;
-      font-family: Consolas, "Cascadia Mono", monospace;
-    }
-
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      .input-panel {
-        position: static;
-      }
-    }
-  </style>
+  textarea{width:100%; height:320px; font:12px/1.5 ui-monospace,Consolas,monospace; border:1px solid var(--bd); border-radius:8px; padding:10px; resize:vertical}
+</style>
 </head>
 <body>
-  <main>
-    <h1>simpleks min</h1>
-    <div class="layout">
-      <section class="panel input-panel">
-        <h2>dane</h2>
-        <label>
-          funkcja celu
-          <input id="objective" type="text" value="2x1 - 3x2 + 6x3">
-        </label>
-        <label>
-          ograniczenia
-          <textarea id="constraints">3x1 - 4x2 - 6x3 <= 2
-2x1 + x2 + 2x3 >= 11
-x1 + 3x2 - 2x3 <= 5</textarea>
-        </label>
-        <div class="row">
-          <button id="solveButton" type="button">policz</button>
-          <button id="exampleButton" class="secondary" type="button">przykład</button>
-          <label class="check">
-            <input id="fractionToggle" type="checkbox" checked>
-            ułamki
-          </label>
-        </div>
-      </section>
 
-      <section>
-        <div id="messages" class="messages"></div>
-        <div id="output" class="steps"></div>
-      </section>
-    </div>
-  </main>
+<main>
+  <div class="actions">
+    <button class="big sim" id="bSim">▶ Symulacja</button>
+    <button class="big reset" id="bReset">↺ Reset</button>
+  </div>
+  <section class="panel" id="canvas"></section>
+</main>
 
-  <script>
-    const EPS = 1e-9;
-    const MAX_ITERATIONS = 80;
+<datalist id="katalog"></datalist>
 
-    const objectiveInput = document.getElementById("objective");
-    const constraintsInput = document.getElementById("constraints");
-    const output = document.getElementById("output");
-    const messages = document.getElementById("messages");
-    const fractionToggle = document.getElementById("fractionToggle");
+<dialog id="dSim">
+  <div class="dlg-h"><h2>Symulacja doboru</h2><div class="spacer"></div><button class="ico" onclick="dSim.close()">✕</button></div>
+  <div class="dlg-b" id="simBody"></div>
+  <div class="dlg-f">
+    <button class="btn" id="simBack">← Cofnij</button>
+    <button class="btn" id="simRestart">Od nowa</button>
+    <button class="btn primary" onclick="dSim.close()">Zamknij</button>
+  </div>
+</dialog>
 
-    document.getElementById("solveButton").addEventListener("click", solveFromForm);
-    document.getElementById("exampleButton").addEventListener("click", () => {
-      objectiveInput.value = "2x1 - 3x2 + 6x3";
-      constraintsInput.value = [
-        "3x1 - 4x2 - 6x3 <= 2",
-        "2x1 + x2 + 2x3 >= 11",
-        "x1 + 3x2 - 2x3 <= 5"
-      ].join("\n");
-      solveFromForm();
+<script>
+/* =====================================================================
+   MODEL
+   node = { id, type:'q'|'a'|'p', text, note?, children:[] }
+     q – pytanie    (dzieci: wyłącznie odpowiedzi)
+     a – odpowiedź  (dzieci: kolejne pytania i/lub produkty)
+     p – produkt    (liść)
+   ===================================================================== */
+
+const KATALOG = ['Profi Clean A2','Profi Clean F5','Profi Clean W1','Biodyspergator B3',
+  'Acticide CMG','Sol Clean X4','Profi Clean G8','Profi Clean PV'];
+
+const q = (text,...c)=>({type:'q',text,children:c});
+const a = (text,...c)=>({type:'a',text,children:c});
+const p = (text,note='')=>({type:'p',text,note,children:[]});
+
+const DEMO = () => ({ name:'Dobór produktu do czyszczenia', children:[
+  q('Jaki jest stan instalacji?',
+    a('Nowa instalacja', p('Profi Clean F5','przed pierwszym uruchomieniem')),
+    a('Instalacja eksploatowana',
+      q('Rodzaj zanieczyszczenia?',
+        a('Kamień i rdza', p('Profi Clean A2')),
+        a('Struktury biologiczne', p('Biodyspergator B3'), p('Acticide CMG')),
+        a('Instalacja solarna', p('Sol Clean X4')))))
+]});
+
+/* =====================================================================
+   STAN
+   ===================================================================== */
+const KEY = 'drzewko-doboru-v3';   // bump = nowe demo ładuje się bez klikania Reset
+let tree = null;
+const MAP = new Map();
+const history = [];
+let uidN = 0;
+const uid = () => 'n' + (++uidN) + Math.random().toString(36).slice(2,6);
+
+function assignIds(list){
+  list.forEach(n=>{
+    n.id = n.id || uid();
+    n.text = n.text || '';
+    n.children = n.children || [];
+    assignIds(n.children);
+  });
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){ const t = JSON.parse(raw); if(t && Array.isArray(t.children)){ tree = t; assignIds(tree.children); return; } }
+  }catch(e){}
+  tree = DEMO(); assignIds(tree.children);
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(tree)); }
+function snapshot(){ history.push(JSON.stringify(tree)); if(history.length>60) history.shift(); }
+function undo(){ if(!history.length) return; tree = JSON.parse(history.pop()); save(); render(); }
+
+/* =====================================================================
+   OPERACJE
+   ===================================================================== */
+function reindex(){
+  MAP.clear();
+  (function walk(list, parent){
+    list.forEach(n=>{ MAP.set(n.id,{node:n, list, parent}); walk(n.children, n); });
+  })(tree.children, null);
+}
+function newNode(type){ return {id:uid(), type, text:'', note: type==='p'?'':undefined, children:[]}; }
+
+function addChild(parentId, type){
+  snapshot();
+  const target = parentId ? MAP.get(parentId).node.children : tree.children;
+  const n = newNode(type);
+  if(type === 'q') n.children.push(newNode('a'));   // pytanie od razu z jedną odpowiedzią
+  target.push(n);
+  save(); render(); focusNode(n.id);
+}
+function remove(id){
+  const {node, list} = MAP.get(id);
+  const kids = countAll(node.children);
+  if(kids && !confirm(`Usunąć „${node.text||'(bez nazwy)'}” razem z ${kids} elementami poniżej?`)) return;
+  snapshot(); list.splice(list.indexOf(node),1); save(); render();
+}
+function move(id, dir){
+  const {node, list} = MAP.get(id);
+  const i = list.indexOf(node), j = i+dir;
+  if(j<0 || j>=list.length) return;
+  snapshot(); list.splice(i,1); list.splice(j,0,node); save(); render();
+}
+function clone(n){ return {...n, id:uid(), children:n.children.map(clone)}; }
+function duplicate(id){
+  const {node, list} = MAP.get(id);
+  snapshot(); list.splice(list.indexOf(node)+1, 0, clone(node)); save(); render();
+}
+function countAll(list){ return list.reduce((s,n)=>s+1+countAll(n.children),0); }
+function focusNode(id){
+  const el = document.querySelector(`#n-${id} input.t`);
+  if(el){ el.focus(); el.scrollIntoView({block:'center',behavior:'smooth'}); }
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+const LABEL = {q:'Pytanie', a:'Odpowiedź', p:'Produkt'};
+const PH    = {q:'Treść pytania, np. „Jaki jest stan instalacji?”',
+               a:'Wariant odpowiedzi, np. „Nowa instalacja”',
+               p:'Nazwa produktu'};
+
+function render(){
+  reindex();
+  const c = document.getElementById('canvas');
+  c.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'treehead';
+  const nameIn = document.createElement('input');
+  nameIn.value = tree.name;
+  nameIn.placeholder = 'Nazwa drzewka';
+  nameIn.oninput = e => { tree.name = e.target.value; save(); };
+  nameIn.onfocus = () => snapshot();
+  const st = stats();
+  head.append(nameIn, mk('span','count', `${st.q} pytań · ${st.a} odpowiedzi · ${st.p} produktów`));
+  c.append(head);
+
+  const root = document.createElement('div');
+  root.className = 'children root';
+  tree.children.forEach(n => root.append(nodeEl(n)));
+  root.append(addBar(null, ['q','p']));
+  c.append(root);
+}
+
+function nodeEl(node){
+  const wrap = document.createElement('div');
+  wrap.className = 'node ' + node.type;
+  wrap.id = 'n-' + node.id;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  if(node.children.length){
+    const ch = document.createElement('button');
+    ch.className = 'ico chev';
+    ch.textContent = node.collapsed ? '▶' : '▼';
+    ch.title = 'Zwiń / rozwiń';
+    ch.onclick = () => { node.collapsed = !node.collapsed; save(); render(); };
+    card.append(ch);
+  }else{
+    const sp = document.createElement('span'); sp.style.width='26px'; sp.style.flex='none';
+    card.append(sp);
+  }
+
+  card.append(mk('span','tag', LABEL[node.type]));
+
+  const inp = document.createElement('input');
+  inp.className = 't'; inp.value = node.text; inp.placeholder = PH[node.type];
+  if(node.type === 'p') inp.setAttribute('list','katalog');
+  inp.oninput = e => { node.text = e.target.value; save(); };
+  inp.onfocus = () => snapshot();
+  inp.onkeydown = e => {                       // Enter = kolejne rodzeństwo tego samego typu
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    const {list} = MAP.get(node.id);
+    const sib = newNode(node.type);
+    if(node.type === 'q') sib.children.push(newNode('a'));
+    snapshot(); list.splice(list.indexOf(node)+1, 0, sib); save(); render(); focusNode(sib.id);
+  };
+  card.append(inp);
+
+  if(node.type === 'p'){
+    const note = document.createElement('input');
+    note.className = 't note'; note.value = node.note || ''; note.placeholder = 'uwaga / dozowanie';
+    note.oninput = e => { node.note = e.target.value; save(); };
+    note.onfocus = () => snapshot();
+    card.append(note);
+  }
+
+  if(node.type === 'q' && !node.children.length) card.append(mk('span','badge','brak odpowiedzi'));
+  if(node.type === 'a' && !node.children.length){                 // gałąź urywa się bez produktu
+    card.classList.add('dead');
+    card.append(mk('span','badge dead','pytanie bez odpowiedzi'));
+  }
+  if(node.collapsed && node.children.length)     card.append(mk('span','count','+' + countAll(node.children)));
+
+  card.append(ico('⌃','W górę', ()=>move(node.id,-1)));
+  card.append(ico('⌄','W dół',  ()=>move(node.id, 1)));
+  card.append(ico('⧉','Duplikuj', ()=>duplicate(node.id)));
+  const del = ico('✕','Usuń', ()=>remove(node.id)); del.classList.add('del');
+  card.append(del);
+
+  wrap.append(card);
+
+  if(!node.collapsed && node.type !== 'p'){
+    const kids = document.createElement('div');
+    kids.className = 'children';
+    node.children.forEach(k => kids.append(nodeEl(k)));
+    kids.append(addBar(node.id, node.type === 'q' ? ['a'] : ['q','p']));
+    wrap.append(kids);
+  }
+  return wrap;
+}
+
+function addBar(parentId, types){
+  const bar = document.createElement('div');
+  bar.className = 'addbar';
+  const txt = {q:'+ pytanie', a:'+ odpowiedź', p:'+ produkt'};
+  types.forEach(t=>{
+    const b = document.createElement('button');
+    b.className = 'add ' + t; b.textContent = txt[t];
+    b.onclick = () => addChild(parentId, t);
+    bar.append(b);
+  });
+  return bar;
+}
+function ico(txt, title, fn){
+  const b = document.createElement('button');
+  b.className = 'ico'; b.textContent = txt; b.title = title; b.onclick = fn;
+  return b;
+}
+function mk(tag, cls, txt){ const e = document.createElement(tag); e.className = cls; e.textContent = txt; return e; }
+function stats(){
+  const s = {q:0,a:0,p:0};
+  (function walk(list){ list.forEach(n=>{ s[n.type]++; walk(n.children); }); })(tree.children);
+  return s;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* =====================================================================
+   SYMULACJA – przejście drzewa tak, jak zobaczy je użytkownik końcowy
+   ===================================================================== */
+const dSim = document.getElementById('dSim');
+let sim, simStack = [];
+
+function simStart(){
+  reindex();
+  sim = { queue: tree.children.filter(n=>n.type==='q'),
+          results: tree.children.filter(n=>n.type==='p'),
+          path: [] };
+  simStack = [];
+  simDraw();
+  if(!dSim.open) dSim.showModal();
+}
+function simPick(question, answer){
+  simStack.push(JSON.stringify({queue:sim.queue.map(n=>n.id), results:sim.results.map(n=>n.id), path:sim.path}));
+  const kids = answer.children;
+  sim = {
+    queue:   [...kids.filter(n=>n.type==='q'), ...sim.queue.slice(1)],
+    results: [...sim.results, ...kids.filter(n=>n.type==='p')],
+    path:    [...sim.path, {q:question.text, a:answer.text}]
+  };
+  simDraw();
+}
+function simBack(){
+  const prev = simStack.pop();
+  if(!prev) return;
+  const st = JSON.parse(prev);
+  sim = { queue: st.queue.map(id=>MAP.get(id).node),
+          results: st.results.map(id=>MAP.get(id).node),
+          path: st.path };
+  simDraw();
+}
+function simDraw(){
+  const b = document.getElementById('simBody');
+  b.innerHTML = '';
+  if(sim.path.length){
+    const c = document.createElement('div'); c.className = 'crumbs';
+    sim.path.forEach(s => c.append(mk('span','crumb', `${s.q} › ${s.a}`)));
+    b.append(c);
+  }
+  document.getElementById('simBack').disabled = !simStack.length;
+
+  const cur = sim.queue[0];
+  if(cur){
+    b.append(mk('h3','simq', cur.text || '(pytanie bez treści)'));
+    const box = document.createElement('div'); box.className = 'opts';
+    if(!cur.children.length) box.append(mk('div','empty','To pytanie nie ma jeszcze odpowiedzi.'));
+    cur.children.forEach(ans=>{
+      const btn = document.createElement('button');
+      btn.className = 'opt';
+      const nq = ans.children.filter(n=>n.type==='q').length;
+      const np = ans.children.filter(n=>n.type==='p').length;
+      const hint = np ? `${np} produkt(y)` + (nq ? ' + dalsze pytania' : '')
+                      : nq ? 'dalsze pytania' : '⚠ pytanie bez odpowiedzi';
+      btn.innerHTML = esc(ans.text || '(bez nazwy)') +
+        `<span style="float:right;color:var(--tx2);font-size:12px">${hint}</span>`;
+      btn.onclick = () => simPick(cur, ans);
+      box.append(btn);
     });
-
-    solveFromForm();
-
-    function solveFromForm() {
-      clearOutput();
-      try {
-        const problem = parseProblem(objectiveInput.value, constraintsInput.value);
-        const solution = solveProblem(problem);
-        renderSolution(problem, solution);
-      } catch (error) {
-        addMessage(error.message, "error");
-      }
-    }
-
-    function clearOutput() {
-      messages.innerHTML = "";
-      output.innerHTML = "";
-    }
-
-    function parseProblem(objectiveText, constraintsText) {
-      const objective = parseObjective(objectiveText);
-      const constraintLines = constraintsText
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean);
-
-      if (!objective.maxIndex && objective.coeffs.length === 0) {
-        throw new Error("Brakuje funkcji celu.");
-      }
-      if (constraintLines.length === 0) {
-        throw new Error("Brakuje ograniczeń.");
-      }
-
-      const constraints = [];
-      let n = objective.maxIndex || objective.coeffs.length;
-
-      for (const line of constraintLines) {
-        const parsed = parseConstraint(line, n);
-        n = Math.max(n, parsed.maxIndex || 0, parsed.coeffs.length);
-        constraints.push(parsed);
-      }
-
-      const objectiveCoeffs = normalizeCoeffs(objective.coeffs, n);
-      const usefulConstraints = [];
-      const skipped = [];
-
-      for (const item of constraints) {
-        const normalized = {
-          coeffs: normalizeCoeffs(item.coeffs, n),
-          op: item.op,
-          rhs: item.rhs,
-          source: item.source
-        };
-        if (isNonnegativityConstraint(normalized)) {
-          skipped.push(normalized.source);
-        } else {
-          usefulConstraints.push(normalized);
-        }
-      }
-
-      if (usefulConstraints.length === 0) {
-        throw new Error("Zostały tylko warunki nieujemności, brakuje właściwych ograniczeń.");
-      }
-
-      return {
-        n,
-        objective: objectiveCoeffs,
-        constraints: usefulConstraints,
-        skippedNonnegativity: skipped
-      };
-    }
-
-    function parseObjective(text) {
-      let body = normalizeText(text);
-      if (body.includes("=")) {
-        body = body.split("=").pop();
-      }
-      if (/x_?\{?\d+\}?/i.test(body)) {
-        const parsed = parseLinearExpression(body);
-        return parsed;
-      }
-      const coeffs = parseCoeffList(body);
-      return { coeffs, maxIndex: coeffs.length };
-    }
-
-    function parseConstraint(line, expectedLength) {
-      const source = line;
-      const normalized = normalizeText(line)
-        .replace(/≤/g, "<=")
-        .replace(/≥/g, ">=");
-      const match = normalized.match(/(<=|>=|=)/);
-      if (!match) {
-        throw new Error(`Nie widzę znaku ograniczenia w linii: ${line}`);
-      }
-
-      const op = match[1];
-      const left = normalized.slice(0, match.index).trim();
-      const right = normalized.slice(match.index + op.length).trim();
-      if (!left || !right) {
-        throw new Error(`Niepełne ograniczenie: ${line}`);
-      }
-
-      const parsedLeft = /x_?\{?\d+\}?/i.test(left)
-        ? parseLinearExpression(left)
-        : { coeffs: parseCoeffList(left, expectedLength), maxIndex: expectedLength };
-
-      const rhs = parseNumber(right);
-      return {
-        coeffs: parsedLeft.coeffs,
-        maxIndex: parsedLeft.maxIndex,
-        op,
-        rhs,
-        source
-      };
-    }
-
-    function normalizeText(text) {
-      return String(text)
-        .replace(/−/g, "-")
-        .replace(/–/g, "-")
-        .replace(/,/g, ".")
-        .trim();
-    }
-
-    function parseLinearExpression(expr) {
-      const compact = normalizeText(expr).replace(/\s+/g, "");
-      const coeffs = [];
-      const termPattern = /([+-]?)(?:(\d+(?:\.\d+)?(?:\/\d+(?:\.\d+)?)?)\*?)?x_?\{?(\d+)\}?/gi;
-      let matched = false;
-      let match;
-
-      while ((match = termPattern.exec(compact)) !== null) {
-        matched = true;
-        const sign = match[1] === "-" ? -1 : 1;
-        const rawCoeff = match[2];
-        const index = Number(match[3]);
-        if (!Number.isInteger(index) || index < 1) {
-          throw new Error(`Niepoprawny indeks zmiennej w wyrażeniu: ${expr}`);
-        }
-        const coeff = sign * (rawCoeff ? parseNumber(rawCoeff) : 1);
-        coeffs[index - 1] = (coeffs[index - 1] || 0) + coeff;
-      }
-
-      if (!matched) {
-        throw new Error(`Nie umiem odczytać wyrażenia liniowego: ${expr}`);
-      }
-
-      for (let i = 0; i < coeffs.length; i += 1) {
-        coeffs[i] = coeffs[i] || 0;
-      }
-
-      return { coeffs, maxIndex: coeffs.length };
-    }
-
-    function parseCoeffList(text, expectedLength = 0) {
-      const parts = normalizeText(text)
-        .split(/[;\s]+/)
-        .map(item => item.trim())
-        .filter(Boolean);
-      if (parts.length === 0) {
-        throw new Error("Pusta lista współczynników.");
-      }
-      const coeffs = parts.map(parseNumber);
-      if (expectedLength && coeffs.length !== expectedLength) {
-        throw new Error(`Lista współczynników ma ${coeffs.length} elementów, a funkcja celu ma ${expectedLength}.`);
-      }
-      return coeffs;
-    }
-
-    function parseNumber(raw) {
-      const text = String(raw).trim().replace(/,/g, ".");
-      if (/^[+-]?\d+(?:\.\d+)?\/[+-]?\d+(?:\.\d+)?$/.test(text)) {
-        const [top, bottom] = text.split("/").map(Number);
-        if (Math.abs(bottom) < EPS) {
-          throw new Error(`Dzielenie przez zero w liczbie: ${raw}`);
-        }
-        return top / bottom;
-      }
-      const value = Number(text);
-      if (!Number.isFinite(value)) {
-        throw new Error(`Niepoprawna liczba: ${raw}`);
-      }
-      return value;
-    }
-
-    function normalizeCoeffs(coeffs, length) {
-      const result = Array(length).fill(0);
-      for (let i = 0; i < coeffs.length; i += 1) {
-        result[i] = coeffs[i] || 0;
-      }
-      return result;
-    }
-
-    function isNonnegativityConstraint(constraint) {
-      if (constraint.op !== ">=" || Math.abs(constraint.rhs) > EPS) {
-        return false;
-      }
-      let nonzero = 0;
-      let isUnit = false;
-      for (const coeff of constraint.coeffs) {
-        if (Math.abs(coeff) > EPS) {
-          nonzero += 1;
-          isUnit = Math.abs(coeff - 1) < EPS;
-        }
-      }
-      return nonzero === 1 && isUnit;
-    }
-
-    function solveProblem(problem) {
-      const state = standardize(problem);
-      const steps = [];
-      const notes = [...state.notes];
-
-      if (problem.skippedNonnegativity.length) {
-        notes.push(`Pominięto warunki nieujemności jako założenie: ${problem.skippedNonnegativity.join("; ")}.`);
-      }
-
-      if (state.artificialNames.length) {
-        const phaseCosts = state.vars.map(v => v.type === "artificial" ? 1 : 0);
-        const label = `min W = ${state.artificialNames.join(" + ")}`;
-        runSimplex(state, phaseCosts, "faza I", label, steps);
-
-        const phaseMetrics = computeMetrics(state, phaseCosts);
-        if (phaseMetrics.value > 1e-7) {
-          steps.push(makeSnapshot(state, phaseCosts, "faza I", label, "Brak rozwiązania dopuszczalnego.", null));
-          return { steps, notes, status: "infeasible" };
-        }
-
-        removeArtificialVariables(state, steps);
-      } else {
-        notes.push("Baza startowa wyszła bez zmiennych sztucznych.");
-      }
-
-      const originalCosts = state.vars.map(v => v.originalCost || 0);
-      const originalLabel = `min F = ${problem.objective.map((c, i) => termText(c, `x${i + 1}`)).filter(Boolean).join(" + ").replace(/\+ -/g, "- ")}`;
-      runSimplex(state, originalCosts, "faza II", originalLabel, steps);
-
-      return { steps, notes, status: "ok" };
-    }
-
-    function standardize(problem) {
-      const vars = [];
-      const A = [];
-      const b = [];
-      const basis = [];
-      const notes = [];
-      const artificialNames = [];
-
-      for (let i = 0; i < problem.n; i += 1) {
-        vars.push({
-          name: `x${i + 1}`,
-          type: "decision",
-          originalCost: problem.objective[i]
-        });
-      }
-
-      const addVar = (type, currentRow) => {
-        const variable = {
-          name: `x${vars.length + 1}`,
-          type,
-          originalCost: 0
-        };
-        vars.push(variable);
-        for (const row of A) {
-          row.push(0);
-        }
-        currentRow.push(0);
-        return vars.length - 1;
-      };
-
-      for (let rowIndex = 0; rowIndex < problem.constraints.length; rowIndex += 1) {
-        const constraint = problem.constraints[rowIndex];
-        let coeffs = [...constraint.coeffs];
-        let rhs = constraint.rhs;
-        let op = constraint.op;
-
-        if (rhs < -EPS) {
-          coeffs = coeffs.map(value => -value);
-          rhs = -rhs;
-          op = flipOperator(op);
-          notes.push(`Ograniczenie ${rowIndex + 1} przemnożono przez -1, bo prawa strona była ujemna.`);
-        }
-
-        const row = Array(vars.length).fill(0);
-        for (let j = 0; j < coeffs.length; j += 1) {
-          row[j] = coeffs[j];
-        }
-
-        if (op === "<=") {
-          const slack = addVar("slack", row);
-          row[slack] = 1;
-          basis.push(slack);
-        } else if (op === ">=") {
-          const surplus = addVar("surplus", row);
-          row[surplus] = -1;
-          const artificial = addVar("artificial", row);
-          row[artificial] = 1;
-          basis.push(artificial);
-          artificialNames.push(vars[artificial].name);
-          notes.push(`Do ograniczenia ${rowIndex + 1} dodano zmienną nadmiaru ${vars[surplus].name} i sztuczną ${vars[artificial].name}.`);
-        } else if (op === "=") {
-          const artificial = addVar("artificial", row);
-          row[artificial] = 1;
-          basis.push(artificial);
-          artificialNames.push(vars[artificial].name);
-          notes.push(`Do ograniczenia ${rowIndex + 1} dodano zmienną sztuczną ${vars[artificial].name}.`);
-        }
-
-        A.push(row);
-        b.push(rhs);
-      }
-
-      return { vars, A, b, basis, notes, artificialNames };
-    }
-
-    function flipOperator(op) {
-      if (op === "<=") return ">=";
-      if (op === ">=") return "<=";
-      return "=";
-    }
-
-    function runSimplex(state, costs, phase, label, steps) {
-      for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
-        const metrics = computeMetrics(state, costs);
-        const entering = chooseEntering(metrics.cMinusZ);
-
-        if (entering === -1) {
-          steps.push(makeSnapshot(state, costs, phase, label, "Warunek optymalności spełniony.", null));
-          return;
-        }
-
-        const leaving = chooseLeaving(state, entering);
-        if (leaving.row === -1) {
-          steps.push(makeSnapshot(state, costs, phase, label, "Brak ograniczenia wyjścia: zadanie nieograniczone.", { entering, leaving: -1 }));
-          return;
-        }
-
-        steps.push(makeSnapshot(state, costs, phase, label, "Wybór elementu głównego.", {
-          entering,
-          leaving: leaving.row,
-          ratios: leaving.ratios
-        }));
-        pivot(state, leaving.row, entering);
-      }
-
-      throw new Error("Przerwano po zbyt wielu iteracjach.");
-    }
-
-    function computeMetrics(state, costs) {
-      const colCount = state.vars.length;
-      const zj = Array(colCount).fill(0);
-      let value = 0;
-
-      for (let i = 0; i < state.A.length; i += 1) {
-        const cBasis = costs[state.basis[i]] || 0;
-        value += cBasis * state.b[i];
-        for (let j = 0; j < colCount; j += 1) {
-          zj[j] += cBasis * state.A[i][j];
-        }
-      }
-
-      const cMinusZ = zj.map((valueAtCol, j) => (costs[j] || 0) - valueAtCol);
-      return { value, zj, cMinusZ };
-    }
-
-    function chooseEntering(cMinusZ) {
-      let best = -1;
-      let bestValue = -EPS;
-      for (let j = 0; j < cMinusZ.length; j += 1) {
-        if (cMinusZ[j] < bestValue) {
-          bestValue = cMinusZ[j];
-          best = j;
-        }
-      }
-      return best;
-    }
-
-    function chooseLeaving(state, entering) {
-      let bestRow = -1;
-      let bestRatio = Infinity;
-      const ratios = Array(state.A.length).fill(null);
-
-      for (let i = 0; i < state.A.length; i += 1) {
-        const coefficient = state.A[i][entering];
-        if (coefficient > EPS) {
-          const ratio = state.b[i] / coefficient;
-          ratios[i] = ratio;
-          if (ratio < bestRatio - EPS) {
-            bestRatio = ratio;
-            bestRow = i;
-          }
-        }
-      }
-
-      return { row: bestRow, ratio: bestRatio, ratios };
-    }
-
-    function pivot(state, rowIndex, colIndex) {
-      const pivotValue = state.A[rowIndex][colIndex];
-      if (Math.abs(pivotValue) < EPS) {
-        throw new Error("Element główny jest zerowy.");
-      }
-
-      for (let j = 0; j < state.vars.length; j += 1) {
-        state.A[rowIndex][j] /= pivotValue;
-      }
-      state.b[rowIndex] /= pivotValue;
-
-      for (let i = 0; i < state.A.length; i += 1) {
-        if (i === rowIndex) continue;
-        const factor = state.A[i][colIndex];
-        if (Math.abs(factor) < EPS) continue;
-        for (let j = 0; j < state.vars.length; j += 1) {
-          state.A[i][j] -= factor * state.A[rowIndex][j];
-        }
-        state.b[i] -= factor * state.b[rowIndex];
-      }
-
-      state.basis[rowIndex] = colIndex;
-    }
-
-    function removeArtificialVariables(state, steps) {
-      for (let i = 0; i < state.basis.length; i += 1) {
-        const basisVar = state.vars[state.basis[i]];
-        if (!basisVar || basisVar.type !== "artificial") continue;
-
-        let replacement = -1;
-        for (let j = 0; j < state.vars.length; j += 1) {
-          if (state.vars[j].type !== "artificial" && Math.abs(state.A[i][j]) > EPS) {
-            replacement = j;
-            break;
-          }
-        }
-
-        if (replacement !== -1) {
-          pivot(state, i, replacement);
-        } else {
-          state.A.splice(i, 1);
-          state.b.splice(i, 1);
-          state.basis.splice(i, 1);
-          i -= 1;
-        }
-      }
-
-      for (let j = state.vars.length - 1; j >= 0; j -= 1) {
-        if (state.vars[j].type !== "artificial") continue;
-        state.vars.splice(j, 1);
-        for (const row of state.A) {
-          row.splice(j, 1);
-        }
-        for (let i = 0; i < state.basis.length; i += 1) {
-          if (state.basis[i] > j) {
-            state.basis[i] -= 1;
-          }
-        }
-      }
-
-      steps.push({
-        phase: "przejście",
-        label: "usunięcie zmiennych sztucznych",
-        note: "Zmienne sztuczne usunięto z tablicy po fazie I.",
-        transitionOnly: true
-      });
-    }
-
-    function makeSnapshot(state, costs, phase, label, note, pivotInfo) {
-      const metrics = computeMetrics(state, costs);
-      return {
-        phase,
-        label,
-        note,
-        vars: state.vars.map(v => ({ ...v })),
-        basis: [...state.basis],
-        costs: [...costs],
-        A: state.A.map(row => [...row]),
-        b: [...state.b],
-        metrics,
-        pivot: pivotInfo
-      };
-    }
-
-    function renderSolution(problem, solution) {
-      addMessage(`Zmienne decyzyjne: ${Array.from({ length: problem.n }, (_, i) => `x${i + 1}`).join(", ")}.`, "ok");
-      for (const note of solution.notes) {
-        addMessage(note, "warn");
-      }
-      if (solution.status === "infeasible") {
-        addMessage("Faza I zakończyła się wartością większą od zera, więc zadanie nie ma rozwiązania dopuszczalnego.", "error");
-      }
-
-      for (const [index, step] of solution.steps.entries()) {
-        if (step.transitionOnly) {
-          output.appendChild(renderTransition(step));
-        } else {
-          output.appendChild(renderTable(step, index + 1));
-        }
-      }
-    }
-
-    function renderTransition(step) {
-      const card = document.createElement("article");
-      card.className = "step";
-      card.innerHTML = `
-        <div class="step-head">
-          <div class="step-title">
-            <span class="phase">${escapeHtml(step.phase)}</span>
-            <h3>${escapeHtml(step.label)}</h3>
-          </div>
-          <div class="pivot-note">${escapeHtml(step.note)}</div>
-        </div>
-      `;
-      return card;
-    }
-
-    function renderTable(step, ordinal) {
-      const showFractions = fractionToggle.checked;
-      const card = document.createElement("article");
-      card.className = "step";
-      const entering = step.pivot && step.pivot.entering >= 0 ? step.pivot.entering : -1;
-      const leaving = step.pivot && step.pivot.leaving >= 0 ? step.pivot.leaving : -1;
-      const pivotText = step.pivot && entering >= 0
-        ? `wchodzi ${step.vars[entering].name}${leaving >= 0 ? `, wychodzi ${step.vars[step.basis[leaving]].name}` : ""}`
-        : step.note;
-
-      const headerCells = step.vars.map((variable, index) => {
-        const classes = index === entering ? "pivot-col" : "";
-        return `<th class="${classes}">h${index + 1}<br><span class="small">${escapeHtml(variable.name)}</span></th>`;
-      }).join("");
-
-      const cjCells = step.vars.map((_, index) => `<td>${formatNumber(step.costs[index] || 0, showFractions)}</td>`).join("");
-
-      const rows = step.A.map((row, rowIndex) => {
-        const basisIndex = step.basis[rowIndex];
-        const rowClass = rowIndex === leaving ? "pivot-row" : "";
-        const coefficientCells = row.map((value, colIndex) => {
-          const classes = colIndex === entering ? "pivot-col" : "";
-          return `<td class="${classes}">${formatNumber(value, showFractions)}</td>`;
-        }).join("");
-        const ratio = step.pivot && step.pivot.ratios
-          ? step.pivot.ratios[rowIndex]
-          : null;
-        return `
-          <tr class="${rowClass}">
-            <td class="basis">${escapeHtml(step.vars[basisIndex].name)}</td>
-            <td>${formatNumber(step.costs[basisIndex] || 0, showFractions)}</td>
-            <td>${formatNumber(step.b[rowIndex], showFractions)}</td>
-            ${coefficientCells}
-            <td>${ratio === null || ratio === undefined ? "" : formatNumber(ratio, showFractions)}</td>
-          </tr>
-        `;
-      }).join("");
-
-      const deltaCells = step.metrics.cMinusZ.map((value, index) => {
-        const classes = index === entering ? "pivot-col" : "";
-        return `<td class="${classes}">${formatNumber(value, showFractions)}</td>`;
-      }).join("");
-
-      card.innerHTML = `
-        <div class="step-head">
-          <div class="step-title">
-            <span class="phase">${escapeHtml(step.phase)} · tabela ${ordinal}</span>
-            <h3>${escapeHtml(step.note)}</h3>
-            <span class="objective">${escapeHtml(step.label)}</span>
-          </div>
-          <div class="pivot-note">${escapeHtml(pivotText)}<br><span class="small">dla min: wiersz Cj-Zj ma być >= 0</span></div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Cj</th>
-                <th></th>
-                <th></th>
-                ${cjCells}
-                <th></th>
-              </tr>
-              <tr>
-                <th>Zb</th>
-                <th>Cb</th>
-                <th>h0</th>
-                ${headerCells}
-                <th>θ</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-              <tr class="summary">
-                <td>F / Cj-Zj</td>
-                <td></td>
-                <td>${formatNumber(step.metrics.value, showFractions)}</td>
-                ${deltaCells}
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-
-      return card;
-    }
-
-    function addMessage(text, type = "") {
-      const div = document.createElement("div");
-      div.className = `message ${type}`.trim();
-      div.textContent = text;
-      messages.appendChild(div);
-    }
-
-    function formatNumber(value, asFraction) {
-      if (Math.abs(value) < EPS) {
-        return "0";
-      }
-      if (asFraction) {
-        const fraction = toFraction(value);
-        if (fraction) {
-          return fraction;
-        }
-      }
-      const fixed = Number(value.toFixed(6));
-      return String(fixed).replace(".", ",");
-    }
-
-    function toFraction(value) {
-      const sign = value < 0 ? "-" : "";
-      let x = Math.abs(value);
-      if (Math.abs(x - Math.round(x)) < 1e-8) {
-        return sign + String(Math.round(x));
-      }
-
-      let h1 = 1;
-      let h2 = 0;
-      let k1 = 0;
-      let k2 = 1;
-      let b = x;
-      const maxDenominator = 1000;
-
-      for (let i = 0; i < 24; i += 1) {
-        const a = Math.floor(b);
-        const h = a * h1 + h2;
-        const k = a * k1 + k2;
-        if (k > maxDenominator) {
-          break;
-        }
-        const approximation = h / k;
-        if (Math.abs(approximation - x) < 1e-8) {
-          return `${sign}${h}/${k}`;
-        }
-        h2 = h1;
-        h1 = h;
-        k2 = k1;
-        k1 = k;
-        b = 1 / (b - a);
-        if (!Number.isFinite(b)) {
-          break;
-        }
-      }
-
-      return null;
-    }
-
-    function termText(coeff, name) {
-      if (Math.abs(coeff) < EPS) {
-        return "";
-      }
-      if (Math.abs(coeff - 1) < EPS) {
-        return name;
-      }
-      if (Math.abs(coeff + 1) < EPS) {
-        return `-${name}`;
-      }
-      return `${String(coeff).replace(".", ",")}${name}`;
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-  </script>
+    b.append(box);
+    return;
+  }
+
+  b.append(mk('h3','simq','Dobrane produkty'));
+  if(!sim.results.length){
+    b.append(mk('div','empty','Ta ścieżka nie kończy się żadnym produktem – uzupełnij drzewo.'));
+    return;
+  }
+  sim.results.forEach(r=>{
+    const d = document.createElement('div'); d.className = 'res';
+    d.innerHTML = `<b>${esc(r.text || '(produkt bez nazwy)')}</b>` + (r.note ? `<small>${esc(r.note)}</small>` : '');
+    b.append(d);
+  });
+}
+document.getElementById('bSim').onclick = simStart;
+document.getElementById('simBack').onclick = simBack;
+document.getElementById('simRestart').onclick = simStart;
+
+/* =====================================================================
+   RESET / UNDO
+   ===================================================================== */
+document.getElementById('bReset').onclick = () => {
+  if(!confirm('Przywrócić dane demo? Bieżące zmiany zostaną utracone.')) return;
+  snapshot(); tree = DEMO(); assignIds(tree.children); save(); render();
+};
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
+});
+
+/* start */
+document.getElementById('katalog').innerHTML = KATALOG.map(k=>`<option value="${esc(k)}">`).join('');
+load();
+render();
+</script>
 </body>
 </html>
